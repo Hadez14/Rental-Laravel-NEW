@@ -1,0 +1,74 @@
+<!doctype html><html lang="id"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1">
+<title>RentalKu – Sewa Mobil</title>
+<style>
+:root{--p:#0b5fff;--bg:#f6f8fb;--c:#fff;--t:#0f1b2d;--m:#5b6779;--b:#dfe5ee;--ok:#0a7a3d;--er:#b42318}
+@media(prefers-color-scheme:dark){:root{--bg:#0e141c;--c:#16202c;--t:#eef2f7;--m:#9aa7b8;--b:#2a3646;--p:#6b9bff}}
+*{box-sizing:border-box}body{margin:0;font:16px system-ui,sans-serif;background:var(--bg);color:var(--t)}
+header{background:var(--c);border-bottom:1px solid var(--b);padding:12px 16px;display:flex;gap:12px;align-items:center;flex-wrap:wrap}
+header b{font-size:1.2rem;color:var(--p);margin-right:auto}main{max-width:960px;margin:0 auto;padding:16px}
+.card{background:var(--c);border:1px solid var(--b);border-radius:12px;padding:16px;margin-bottom:12px}
+.grid{display:grid;gap:12px;grid-template-columns:repeat(auto-fill,minmax(260px,1fr))}
+label{display:block;font-size:.85rem;color:var(--m);margin-bottom:4px}
+input,select,button{font:inherit;padding:10px;border-radius:8px;border:1px solid var(--b);background:var(--c);color:var(--t);width:100%}
+button{background:var(--p);color:#fff;border:0;cursor:pointer;font-weight:600}button.s{background:transparent;color:var(--p);border:1px solid var(--p);width:auto}
+:focus-visible{outline:3px solid var(--p);outline-offset:2px}.msg{padding:10px;border-radius:8px;margin:8px 0}.err{background:#fee;color:var(--er)}.ok{background:#e6f6ec;color:var(--ok)}
+.tag{font-size:.75rem;padding:2px 8px;border-radius:99px;border:1px solid var(--b);color:var(--m)}.price{font-size:1.2rem;font-weight:700}
+table{width:100%;border-collapse:collapse}td,th{padding:6px;border-bottom:1px solid var(--b);text-align:left;font-size:.9rem}
+</style></head><body>
+<header><b>🚗 RentalKu</b><span id="who"></span><button class="s" id="authbtn">Masuk / Daftar</button></header>
+<main>
+<div id="notice" role="status" aria-live="polite"></div>
+<section class="card"><h1 style="margin-top:0">Cari mobil</h1>
+<form id="f" class="grid">
+<div><label for="branch">Cabang</label><select id="branch"></select></div>
+<div><label for="start">Mulai</label><input id="start" type="datetime-local" required></div>
+<div><label for="end">Selesai</label><input id="end" type="datetime-local" required></div>
+<div><label for="service">Layanan</label><select id="service"><option value="lepas_kunci">Lepas kunci</option><option value="dengan_sopir">Dengan sopir</option></select></div>
+<div><label for="cat">Kategori</label><select id="cat"><option value="">Semua</option><option>Ekonomi</option><option>Keluarga</option><option>Premium</option></select></div>
+<div><label for="seats">Min. penumpang</label><input id="seats" type="number" min="1" max="9"></div>
+<div style="align-self:end"><button>Cari Mobil</button></div></form></section>
+<div id="res"><p class="card" style="color:var(--m)">Pilih tanggal untuk melihat ketersediaan dan harga.</p></div>
+<section id="my" class="card" hidden><h2 style="margin-top:0">Booking saya</h2><div id="mylist"></div></section>
+<section id="adm" class="card" hidden><h2 style="margin-top:0">Dashboard admin</h2><div id="sum"></div><div id="adlist"></div></section>
+<dialog id="dlg" class="card" style="max-width:380px"><form id="af" method="dialog"><h2 style="margin-top:0">Masuk / Daftar</h2>
+<div><label for="nm">Nama (khusus daftar)</label><input id="nm"></div><div><label for="em">Email</label><input id="em" type="email" required></div>
+<div><label for="pw">Password (min. 8)</label><input id="pw" type="password" required></div><p style="display:flex;gap:8px"><button value="login" id="lg">Masuk</button><button type="button" id="rg" class="s">Daftar</button></p>
+<small style="color:var(--m)">Demo: user@demo.test / User#12345 · admin@demo.test / Admin#12345</small></form></dialog>
+</main>
+<script>
+const $=id=>document.getElementById(id),rp=n=>'Rp'+n.toLocaleString('id-ID'),fmt=s=>new Date(s).toLocaleString('id-ID',{dateStyle:'medium',timeStyle:'short'});
+let me={};
+async function api(p,o={}){const r=await fetch(p,{method:o.body?'POST':'GET',headers:{'Content-Type':'application/json'},body:o.body?JSON.stringify(o.body):undefined});
+ const d=await r.json().catch(()=>({}));if(!r.ok)throw Error(d.error||'Terjadi kesalahan');return d}
+function note(t,ok){$('notice').innerHTML=t?`<div class="msg ${ok?'ok':'err'}">${t.replace(/</g,'&lt;')}</div>`:''}
+const esc=s=>String(s).replace(/[&<>"]/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;'}[c]));
+async function init(){
+ $('branch').innerHTML='<option value="">Semua cabang</option>'+(await api('/api/branches')).map(b=>`<option value="${b.id}">${esc(b.name)}</option>`).join('');
+ const d=new Date(Date.now()+864e5);d.setMinutes(0);const z=x=>new Date(x-x.getTimezoneOffset()*6e4).toISOString().slice(0,16);
+ $('start').value=z(d);$('end').value=z(new Date(+d+2*864e5));await session()}
+async function session(){me=await api('/api/me');$('who').textContent=me.name?`Halo, ${me.name}`:'';$('authbtn').textContent=me.name?'Keluar':'Masuk / Daftar';
+ $('my').hidden=!me.name;$('adm').hidden=me.role!=='admin';if(me.name)loadMy();if(me.role==='admin')loadAdmin()}
+$('authbtn').onclick=async()=>{if(me.name){await api('/api/auth/logout',{body:{}});await session();note('Anda telah keluar.',1)}else $('dlg').showModal()};
+$('lg').onclick=async e=>{e.preventDefault();try{await api('/api/auth/login',{body:{email:$('em').value,password:$('pw').value}});$('dlg').close();await session();note('Berhasil masuk.',1)}catch(x){note(x.message)}};
+$('rg').onclick=async()=>{try{await api('/api/auth/register',{body:{name:$('nm').value,email:$('em').value,password:$('pw').value}});note('Pendaftaran berhasil, silakan masuk.',1)}catch(x){note(x.message)}};
+$('f').onsubmit=async e=>{e.preventDefault();note('');$('res').innerHTML='<p class="card">Memuat…</p>';
+ const iso=v=>new Date(v).toISOString(),q=new URLSearchParams({start:iso($('start').value),end:iso($('end').value),service:$('service').value});
+ if($('branch').value)q.set('branch',$('branch').value);if($('cat').value)q.set('category',$('cat').value);if($('seats').value)q.set('seats',$('seats').value);
+ try{const v=await api('/api/vehicles?'+q);$('res').innerHTML=v.length?`<div class="grid">${v.map(x=>`<article class="card"><h3 style="margin:0">${esc(x.brand)} ${esc(x.model)} ${x.year}</h3>
+ <p><span class="tag">${esc(x.category)}</span> <span class="tag">${x.seats} kursi</span> <span class="tag">${esc(x.transmission)}</span> <span class="tag">${esc(x.fuel)}</span></p>
+ <div class="price">${rp(x.quote.rent_total)}</div><small style="color:var(--m)">${x.quote.days} hari · pajak termasuk · deposit ${rp(x.quote.deposit)} (dikembalikan)</small>
+ <p>${x.available?`<button data-v="${x.id}">Pesan Sekarang</button>`:'<span class="msg err" style="display:block">Tidak tersedia pada waktu ini</span>'}</p></article>`).join('')}</div>`:'<p class="card">Tidak ada mobil yang cocok. Ubah filter Anda.</p>';
+ document.querySelectorAll('[data-v]').forEach(b=>b.onclick=()=>book(b.dataset.v))}catch(x){$('res').innerHTML='';note(x.message)}};
+async function book(id){if(!me.name){$('dlg').showModal();return note('Silakan masuk terlebih dahulu.')}
+ const promo=prompt('Kode promo (opsional, contoh HEMAT10):')||undefined;
+ try{const b=await api('/api/bookings',{body:{vehicle_id:+id,start:new Date($('start').value).toISOString(),end:new Date($('end').value).toISOString(),service:$('service').value,promo}});
+  if(!confirm(`Total ${rp(b.total)} (sewa+pajak+deposit ${rp(b.deposit)}). Lanjut bayar (sandbox)?`))return loadMy();
+  const p=await api('/api/payments/checkout',{body:{code:b.code}});note(`Booking ${b.code} dibuat. Bayar sebelum batas waktu. Ref sandbox: ${p.reference}. Konfirmasi hanya terjadi setelah webhook penyedia pembayaran diverifikasi server.`,1);loadMy()}catch(x){note(x.message)}}
+async function loadMy(){const r=await api('/api/bookings');$('mylist').innerHTML=r.length?`<table><tr><th>Kode</th><th>Mobil</th><th>Jadwal</th><th>Status</th><th></th></tr>${r.map(b=>`<tr><td>${b.code}</td><td>${esc(b.brand)} ${esc(b.model)}</td><td>${fmt(b.start_at)}</td><td>${b.status}</td>
+ <td>${['pending_payment','confirmed'].includes(b.status)?`<button class="s" data-c="${b.code}">Batalkan</button>`:''}</td></tr>`).join('')}</table>`:'Belum ada booking.';
+ document.querySelectorAll('[data-c]').forEach(b=>b.onclick=async()=>{if(confirm('Batalkan booking ini?'))try{await api(`/api/bookings/${b.dataset.c}/cancel`,{body:{}});loadMy()}catch(x){note(x.message)}})}
+async function loadAdmin(){const s=await api('/api/admin/summary');$('sum').innerHTML=`<p>Aktif: <b>${s.booking_aktif}</b> · Menunggu bayar: <b>${s.pending}</b> · Pendapatan sewa: <b>${rp(s.pendapatan_sewa)}</b></p>`;
+ const r=await api('/api/admin/bookings');$('adlist').innerHTML=`<table>${r.map(b=>`<tr><td>${b.code}</td><td>${b.status}</td><td>${rp(b.total)}</td><td><select data-a="${b.id}" aria-label="Ubah status ${b.code}"><option value="">Ubah status…</option>${['confirmed','ready_for_pickup','ongoing','completed','cancelled','refunded'].map(s=>`<option>${s}</option>`).join('')}</select></td></tr>`).join('')}</table>`;
+ document.querySelectorAll('[data-a]').forEach(s=>s.onchange=async()=>{if(!s.value)return;try{await api(`/api/admin/bookings/${s.dataset.a}/status`,{body:{status:s.value}});note('Status diperbarui.',1)}catch(x){note(x.message)}loadAdmin()})}
+init().catch(x=>note(x.message));
+</script></body></html>
